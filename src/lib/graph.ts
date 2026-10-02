@@ -1,15 +1,12 @@
-import type { Block, Edge, Entity, Graph, Issue, PageData, PropValue } from './types';
+import type { Edge, Entity, Generator, Graph, Issue, PageData, PropValue } from './types';
 import { validate } from './validate';
+import { blockLabel, detectGenerator } from './provenance';
+import { competingIssues } from './competing';
+import { blockKey, isObj, toArray } from './util';
 
 const SCHEMA_PREFIX = /^(https?:\/\/schema\.org\/|schema:)/i;
 export const shortName = (s: string) => s.replace(SCHEMA_PREFIX, '');
-export const blockKey = (b: Pick<Block, 'source' | 'index'>) => `${b.source}#${b.index + 1}`;
-
-const toArray = <T,>(v: T | T[] | undefined | null): T[] =>
-  v === undefined || v === null ? [] : Array.isArray(v) ? v : [v];
-
-const isObj = (v: unknown): v is Record<string, unknown> =>
-  typeof v === 'object' && v !== null && !Array.isArray(v);
+export { blockKey };
 
 const LABEL_KEYS = ['name', 'headline', 'title', 'alternateName', 'legalName', 'text'];
 
@@ -18,22 +15,35 @@ export function buildGraph(page: PageData): Graph {
   const edges: Edge[] = [];
   const issues: Issue[] = [];
   const blockRoots: string[][] = [];
+  const rootsByBlock = new Map<string, string[]>();
   const nonSchemaBlocks = new Set<string>();
+  /** Which block first gave each entity each of its types. */
+  const typeFrom = new Map<string, Map<string, string>>();
   let blank = 0;
+
+  const generators = new Map<string, Generator>();
+  for (const b of page.blocks) {
+    const g = detectGenerator(b);
+    if (g) generators.set(blockKey(b), g);
+  }
+  const label = (bk: string) => blockLabel(bk, generators);
 
   const getEntity = (id: string, isBlank: boolean): Entity => {
     let e = entities.get(id);
     if (!e) {
-      e = { id, blank: isBlank, stub: true, types: [], props: {}, sources: [], label: '' };
+      e = { id, blank: isBlank, stub: true, types: [], props: {}, sources: [], definedIn: [], label: '' };
       entities.set(id, e);
     }
     return e;
   };
 
-  const addValue = (e: Entity, prop: string, v: PropValue) => {
+  const valueKey = (v: PropValue) => (v.kind === 'ref' ? `ref:${v.id}` : `lit:${JSON.stringify(v.value)}`);
+  const addValue = (e: Entity, prop: string, v: PropValue, bk: string) => {
     const list = (e.props[prop] ??= []);
-    const key = JSON.stringify(v);
-    if (!list.some((x) => JSON.stringify(x) === key)) list.push(v);
+    const key = valueKey(v);
+    const same = list.find((x) => valueKey(x) === key);
+    if (!same) list.push({ ...v, from: [bk] });
+    else if (!same.from!.includes(bk)) same.from!.push(bk);
   };
 
   const addEdge = (source: string, target: string, prop: string) => {
@@ -47,18 +57,28 @@ export function buildGraph(page: PageData): Graph {
     const e = getEntity(id, !rawId);
     const keys = Object.keys(obj).filter((k) => k !== '@id');
     // An object with only @id is a reference, not a definition.
-    if (keys.length) e.stub = false;
+    if (keys.length) {
+      e.stub = false;
+      if (!e.definedIn.includes(bk)) e.definedIn.push(bk);
+    }
     if (!e.sources.includes(bk)) e.sources.push(bk);
 
     const types = toArray(obj['@type'] as string | string[]).map((t) => shortName(String(t)));
+    const from = typeFrom.get(id) ?? new Map<string, string>();
+    typeFrom.set(id, from);
     if (types.length && e.types.length && !types.some((t) => e.types.includes(t))) {
+      const was = e.types.map((t) => `${t} (${label(from.get(t)!)})`).join(', ');
       issues.push({
         severity: 'warning',
         entityId: id,
-        message: `@id is defined with conflicting types: ${e.types.join(', ')} vs ${types.join(', ')}`,
+        message: `@id is defined with conflicting types: ${was} vs ${types.join(', ')} (${label(bk)})`,
       });
     }
-    for (const t of types) if (!e.types.includes(t)) e.types.push(t);
+    for (const t of types) {
+      if (e.types.includes(t)) continue;
+      e.types.push(t);
+      from.set(t, bk);
+    }
 
     for (const [k, v] of Object.entries(obj)) {
       if (k === '@context' || k === '@id' || k === '@type') continue;
@@ -71,16 +91,16 @@ export function buildGraph(page: PageData): Graph {
       for (const item of items) {
         if (isObj(item)) {
           if ('@value' in item) {
-            addValue(e, prop, { kind: 'literal', value: item['@value'] as string | number | boolean | null });
+            addValue(e, prop, { kind: 'literal', value: item['@value'] as string | number | boolean | null }, bk);
           } else {
             const childId = ingest(item, bk);
-            addValue(e, prop, { kind: 'ref', id: childId });
+            addValue(e, prop, { kind: 'ref', id: childId }, bk);
             addEdge(id, childId, prop);
           }
         } else if (Array.isArray(item)) {
-          addValue(e, prop, { kind: 'literal', value: JSON.stringify(item) });
+          addValue(e, prop, { kind: 'literal', value: JSON.stringify(item) }, bk);
         } else {
-          addValue(e, prop, { kind: 'literal', value: item as string | number | boolean | null });
+          addValue(e, prop, { kind: 'literal', value: item as string | number | boolean | null }, bk);
         }
       }
     }
@@ -95,6 +115,13 @@ export function buildGraph(page: PageData): Graph {
       continue;
     }
     if (block.warning) issues.push({ severity: 'warning', blockKey: bk, message: `${bk}: ${block.warning}` });
+    if (block.origin === 'injected') {
+      issues.push({
+        severity: 'info',
+        blockKey: bk,
+        message: `${label(bk)} is added by JavaScript. Google renders it, but crawlers that don't run scripts (including most AI crawlers) won't see it.`,
+      });
+    }
 
     const tops = toArray(block.data as unknown);
     const roots: string[] = [];
@@ -122,6 +149,7 @@ export function buildGraph(page: PageData): Graph {
       }
     }
     blockRoots.push(roots);
+    rootsByBlock.set(bk, roots);
   }
 
   for (const e of entities.values()) {
@@ -139,8 +167,17 @@ export function buildGraph(page: PageData): Graph {
   let roots = [...entities.keys()].filter((id) => !targeted.has(id) && !entities.get(id)!.stub);
   if (!roots.length) roots = [...new Set(blockRoots.flat())];
 
+  if (page.removedBlocks) {
+    const n = page.removedBlocks;
+    issues.push({
+      severity: 'info',
+      message: `${n} JSON-LD block${n > 1 ? 's' : ''} in the HTML the server sent ${n > 1 ? 'are' : 'is'} missing from the live page (removed or rewritten by JavaScript).`,
+    });
+  }
+
+  issues.push(...competingIssues(entities, rootsByBlock, page.blocks, generators));
   issues.push(...validate(entities, { visibleText: page.visibleText, nonSchemaBlocks }));
-  return { entities, edges, roots, issues };
+  return { entities, edges, roots, issues, generators };
 }
 
 /** Whether an @context (string, array or object with @vocab) points at schema.org. */

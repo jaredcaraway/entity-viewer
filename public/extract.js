@@ -16,11 +16,44 @@
   };
 
   /* ---------------- JSON-LD ---------------- */
+  const clip = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
+  const isJsonLd = (n) => n.nodeType === 1 && n.matches('script[type="application/ld+json" i]');
+
+  /** The nearest comment in one direction, stopping at another JSON-LD script (whose comment it would be). */
+  function nearestComment(s, dir) {
+    let n = s[dir];
+    for (let steps = 0; n && steps < 60; n = n[dir], steps++) {
+      if (isJsonLd(n)) return undefined;
+      if (n.nodeType === 8) return clip(squash(n.textContent), 160) || undefined;
+    }
+    return undefined;
+  }
+
+  /** Markup around the script that can identify what wrote it. */
+  function jsonLdHints(s) {
+    const hints = {};
+    const attrs = {};
+    for (const a of s.attributes) {
+      if (a.name === 'id' || a.name === 'class' || a.name.startsWith('data-')) attrs[a.name] = clip(a.value, 120);
+    }
+    if (Object.keys(attrs).length) hints.attrs = attrs;
+    // Plugins wrap their output in an opening and a closing comment ("Yoast SEO plugin" … "/ Yoast SEO plugin.").
+    const before = nearestComment(s, 'previousSibling');
+    const after = nearestComment(s, 'nextSibling');
+    if (before) hints.comment = before;
+    if (after) hints.commentAfter = after;
+    const container = s.parentElement && s.parentElement.closest('[id]');
+    if (container) hints.container = clip(container.id, 80);
+    return Object.keys(hints).length ? hints : undefined;
+  }
+
   function jsonLdBlocks() {
     const out = [];
     document.querySelectorAll('script[type="application/ld+json" i]').forEach((s, index) => {
       const raw = s.textContent || '';
       const block = { source: 'json-ld', index, raw };
+      const hints = jsonLdHints(s);
+      if (hints) block.hints = hints;
       try {
         block.data = JSON.parse(raw);
       } catch (e1) {

@@ -25,7 +25,7 @@ export function GraphView({ graph, selected, onSelect, issueIds, fileStem }: Pro
   const scheme = useComputedColorScheme('light');
   const dark = scheme === 'dark';
 
-  const elements = useMemo(() => {
+  const fresh = useMemo(() => {
     const nodes = [...graph.entities.values()].map((e) => ({
       data: {
         id: e.id,
@@ -41,6 +41,13 @@ export function GraphView({ graph, selected, onSelect, issueIds, fileStem }: Pro
       .map((e) => ({ data: { id: e.id, source: e.source, target: e.target, label: e.prop } }));
     return [...nodes, ...edges];
   }, [graph, issueIds]);
+  // Rebuilding the graph (e.g. once origins are known) shouldn't redo the layout unless what's drawn changed.
+  const freshKey = JSON.stringify(fresh);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const elements = useMemo(() => fresh, [freshKey]);
+  const rootsKey = graph.roots.join('\n');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const roots = useMemo(() => graph.roots, [rootsKey]);
 
   useEffect(() => {
     if (!host.current) return;
@@ -121,7 +128,7 @@ export function GraphView({ graph, selected, onSelect, issueIds, fileStem }: Pro
     if (!cy) return;
     const opts: cytoscape.LayoutOptions =
       layout === 'breadthfirst'
-        ? ({ name: 'breadthfirst', directed: true, roots: graph.roots.map((r) => cy.getElementById(r)), spacingFactor: 1.1, animate: false } as cytoscape.LayoutOptions)
+        ? ({ name: 'breadthfirst', directed: true, roots: roots.map((r) => cy.getElementById(r)), spacingFactor: 1.1, animate: false } as cytoscape.LayoutOptions)
         : layout === 'concentric'
           ? ({ name: 'concentric', minNodeSpacing: 20, animate: false } as cytoscape.LayoutOptions)
           : layout === 'circle'
@@ -129,7 +136,7 @@ export function GraphView({ graph, selected, onSelect, issueIds, fileStem }: Pro
             : ({ name: 'cose', animate: false, nodeRepulsion: () => 9000, idealEdgeLength: () => 70, padding: 20 } as cytoscape.LayoutOptions);
     cy.layout(opts).run();
     cy.fit(undefined, 20);
-  }, [layout, elements, dark, graph.roots]);
+  }, [layout, elements, dark, roots]);
 
   useEffect(() => {
     const cy = cyRef.current;

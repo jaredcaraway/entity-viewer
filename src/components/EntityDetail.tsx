@@ -1,8 +1,9 @@
-import { Anchor, Badge, Code, CopyButton, Group, ActionIcon, Stack, Table, Text } from '@mantine/core';
+import { Anchor, Badge, Code, CopyButton, Group, ActionIcon, Stack, Table, Text, Tooltip } from '@mantine/core';
 import { IconCheck, IconCopy } from '@tabler/icons-react';
 import type { Entity, Graph, Issue } from '../lib/types';
 import { colorForType } from '../theme';
 import { openTab } from '../lib/browser';
+import { blockLabel } from '../lib/provenance';
 import { SeverityIcon } from './IssuesView';
 
 export function TypeBadges({ types, stub }: { types: string[]; stub?: boolean }) {
@@ -27,14 +28,16 @@ interface Props {
 
 export function EntityDetail({ entity, graph, issues, onSelect }: Props) {
   const incoming = graph.edges.filter((e) => e.target === entity.id && e.source !== entity.id);
+  // Only worth showing where each value came from when several blocks define this entity.
+  const perValue = entity.definedIn.length > 1;
 
   return (
     <Stack gap="sm">
       <Group gap={6}>
         <Text size="xs" c="dimmed">Found in</Text>
         {entity.sources.map((s) => (
-          <Badge key={s} color="gray" variant="outline">
-            {s}
+          <Badge key={s} color="gray" variant="outline" style={{ textTransform: 'none' }}>
+            {blockLabel(s, graph.generators)}
           </Badge>
         ))}
       </Group>
@@ -80,21 +83,30 @@ export function EntityDetail({ entity, graph, issues, onSelect }: Props) {
                 </Table.Td>
                 <Table.Td>
                   <Stack gap={2}>
-                    {vals.map((v, i) =>
-                      v.kind === 'ref' ? (
-                        <Anchor key={i} size="sm" component="button" onClick={() => onSelect(v.id)} ta="left">
-                          → {refLabel(graph, v.id)}
-                        </Anchor>
-                      ) : typeof v.value === 'string' && /^https?:\/\//.test(v.value) ? (
-                        <Anchor key={i} size="sm" component="button" ta="left" onClick={() => openTab(v.value as string)} style={{ wordBreak: 'break-all' }}>
-                          {v.value}
-                        </Anchor>
-                      ) : (
-                        <Text key={i} size="sm" style={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
-                          {v.value === null ? <i>null</i> : String(v.value).slice(0, 600)}
-                        </Text>
-                      ),
-                    )}
+                    {vals.map((v, i) => (
+                      <Group key={i} gap={6} wrap="nowrap" align="baseline">
+                        {v.kind === 'ref' ? (
+                          <Anchor size="sm" component="button" onClick={() => onSelect(v.id)} ta="left">
+                            → {refLabel(graph, v.id)}
+                          </Anchor>
+                        ) : typeof v.value === 'string' && /^https?:\/\//.test(v.value) ? (
+                          <Anchor size="sm" component="button" ta="left" onClick={() => openTab(v.value as string)} style={{ wordBreak: 'break-all' }}>
+                            {v.value}
+                          </Anchor>
+                        ) : (
+                          <Text size="sm" style={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
+                            {v.value === null ? <i>null</i> : String(v.value).slice(0, 600)}
+                          </Text>
+                        )}
+                        {perValue && v.from && (
+                          <Tooltip label={v.from.map((b) => blockLabel(b, graph.generators)).join(', ')}>
+                            <Text size="xs" c="dimmed" ff="monospace" style={{ flexShrink: 0, marginLeft: 'auto' }}>
+                              {v.from.join(' ')}
+                            </Text>
+                          </Tooltip>
+                        )}
+                      </Group>
+                    ))}
                   </Stack>
                 </Table.Td>
               </Table.Tr>

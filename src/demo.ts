@@ -9,6 +9,12 @@ export const DEMO_PAGE: PageData = {
       "source": "json-ld",
       "index": 0,
       "raw": "\n{\"@context\":\"https://schema.org\",\"@graph\":[\n {\"@type\":\"MedicalClinic\",\"@id\":\"https://ex.com/#org\",\"name\":\"Ex Clinic\",\"url\":\"https://ex.com/\",\"logo\":{\"@type\":\"ImageObject\",\"url\":\"https://ex.com/logo.png\"},\"address\":{\"@id\":\"https://ex.com/#addr\"}},\n {\"@type\":\"PostalAddress\",\"@id\":\"https://ex.com/#addr\",\"streetAddress\":\"1 Main\",\"addressLocality\":\"Richmond\"},\n {\"@type\":\"WebPage\",\"@id\":\"https://ex.com/p#webpage\",\"isPartOf\":{\"@id\":\"https://ex.com/#website\"},\"publisher\":{\"@id\":\"https://ex.com/#org\"},\"datePublished\":\"May 3 2024\"}\n]}\n",
+      "hints": {
+        "attrs": {
+          "class": "yoast-schema-graph"
+        },
+        "comment": "This site is optimized with the Yoast SEO plugin"
+      },
       "data": {
         "@context": "https://schema.org",
         "@graph": [
@@ -67,6 +73,24 @@ export const DEMO_PAGE: PageData = {
       "error": "Expected double-quoted property name in JSON at position 20 (line 1 column 21)"
     },
     {
+      "source": "json-ld",
+      "index": 3,
+      "raw": "{\"@context\":\"https://schema.org\",\"@type\":\"MedicalClinic\",\"@id\":\"https://ex.com/#org\",\"name\":\"Ex Clinic LLC\",\"url\":\"https://ex.com/\",\"telephone\":\"+1-555-0100\"}",
+      "hints": {
+        "attrs": {
+          "class": "rank-math-schema"
+        }
+      },
+      "data": {
+        "@context": "https://schema.org",
+        "@type": "MedicalClinic",
+        "@id": "https://ex.com/#org",
+        "name": "Ex Clinic LLC",
+        "url": "https://ex.com/",
+        "telephone": "+1-555-0100"
+      }
+    },
+    {
       "source": "microdata",
       "index": 0,
       "data": {
@@ -94,5 +118,6 @@ export const DEMO_PAGE: PageData = {
         }
       }
     }
-  ]
+  ],
+  "visibleText": "\n$1,299x\nJane Doe\n Houston\n Jane\nMeetup\n Nov 1\n Library\n\n\nWidget photo\nPrice: $1,299"
 };
