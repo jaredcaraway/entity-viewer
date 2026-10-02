@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Entity Viewer",
+  "description": "Visualize structured data (JSON-LD, Microdata, RDFa) on any page as an entity graph, with SEO-focused validation.",
+  "permissions": [
+    "scripting",
+    "tabs",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_title": "Toggle Entity Viewer"
+  }
+}

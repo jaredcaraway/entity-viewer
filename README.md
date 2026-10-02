@@ -1,15 +1,23 @@
-# Entity Viewer for Firefox
+# Entity Viewer
 
-A Firefox sidebar extension that finds the structured data on a page and shows it as an entity graph. It reads JSON-LD, Microdata and RDFa, merges nodes that share an `@id` across blocks, and flags SEO problems.
+A Firefox and Chrome sidebar extension that finds the structured data on a page and shows it as an entity graph. It reads JSON-LD, Microdata and RDFa, merges nodes that share an `@id` across blocks, and flags SEO problems.
 
 ## Install for testing
 
+### Firefox
+
 1. Open `about:debugging#/runtime/this-firefox`.
-2. Click **Load Temporary Add-on…** and select `entity-viewer-firefox.zip`, or `dist/manifest.json` if you built from source.
+2. Click **Load Temporary Add-on…** and select `entity-viewer-firefox.zip`, or `dist/firefox/manifest.json` if you built from source.
 3. Click the toolbar icon or press **Alt+Shift+E** to open the sidebar.
 4. The first time, click **Grant access to websites**. Firefox treats host access as opt-in for Manifest V3 extensions.
 
-Temporary add-ons are removed when Firefox restarts. To install it permanently, sign it through AMO. Unlisted self-distribution works fine for personal use: `npx web-ext sign --channel=unlisted`.
+Temporary add-ons are removed when Firefox restarts. To install it permanently, sign it through AMO. Unlisted self-distribution works fine for personal use: `npx web-ext sign --channel=unlisted -s dist/firefox`.
+
+### Chrome
+
+1. Open `chrome://extensions` and turn on **Developer mode**.
+2. Click **Load unpacked** and select `dist/chrome`.
+3. Click the toolbar icon or press **Alt+Shift+E** to open the side panel. Chrome grants access to websites at install, so there's no permission prompt.
 
 ## Features
 
@@ -42,12 +50,21 @@ Temporary add-ons are removed when Firefox restarts. To install it permanently, 
 
 ```bash
 npm install
-npm run build      # outputs the loadable extension to dist/
-npm run dev        # rebuilds on change; click "Reload" in about:debugging
+npm run build      # builds both extensions: dist/firefox and dist/chrome
+npm run build:firefox / build:chrome   # one browser only
+npm run dev        # rebuilds the Firefox build on change; click "Reload" in about:debugging
+npm run dev:chrome # same for Chrome; click the reload icon in chrome://extensions
 npm test           # unit tests (test/*.test.ts), then the extractor smoke run on test/fixture.html
 npx vite           # runs the sidebar UI in a normal browser with demo data
-npm run zip        # packages dist/ as entity-viewer-firefox.zip
+npm run zip        # packages entity-viewer-firefox.zip and entity-viewer-chrome.zip
+npm run icons      # re-renders the Chrome PNG icons from icons/icon.svg (needs ImageMagick)
 ```
+
+One codebase feeds both browsers. The differences are confined to:
+
+- **The manifest.** `manifest/base.json` holds what's shared; `manifest/firefox.json` and `manifest/chrome.json` add each browser's keys (sidebar vs. side panel, background script vs. service worker, Gecko settings, SVG vs. PNG icons). The build merges them and takes `version` from `package.json`, so that's the only place to bump it.
+- **The API namespace.** `src/lib/browser.ts` and `public/background.js` use `browser` in Firefox and `chrome` in Chrome. Chrome's MV3 calls return promises, so the same code works in both.
+- **Opening the panel.** Firefox toggles the sidebar from the toolbar button; Chrome opens the side panel through `sidePanel.setPanelBehavior`.
 
 Built with React, Mantine 9 (custom "lagoon" teal theme with navy-tinted dark mode), Tabler icons and Cytoscape.js. All libraries are bundled into the extension, which AMO requires: no code is loaded remotely.
 
@@ -55,9 +72,9 @@ Built with React, Mantine 9 (custom "lagoon" teal theme with navy-tinted dark mo
 
 | Path | Role |
 |---|---|
-| `public/manifest.json` | MV3 manifest with `sidebar_action` and the Gecko ID |
+| `manifest/*.json` | MV3 manifest: shared base plus Firefox and Chrome overrides, merged by `scripts/manifest.ts` at build time |
 | `public/extract.js` | Injected on demand. Plain JS that returns `{url, title, blocks[]}` |
-| `public/background.js` | Toggles the sidebar from the toolbar button and keeps the badge count updated |
+| `public/background.js` | Opens the sidebar or side panel from the toolbar button and keeps the badge count updated |
 | `src/lib/graph.ts` | Normalizes blocks into entities and edges, and merges nodes by `@id` |
 | `src/lib/provenance.ts` | Generator detection, and the comparison with the HTML the server sent |
 | `src/lib/competing.ts` | Checks for blocks that compete to define the same entity |
@@ -83,4 +100,4 @@ Download the latest `schemaorg-all-https.jsonld` from [schema.org/docs/developer
 - The server-vs-live comparison re-requests the page. Pages that vary per request (nonces, timestamps inside JSON-LD) may show as "changed by JS".
 - RDFa support covers RDFa Lite (`vocab`, `typeof`, `property`, `resource`, `prefix`), not all of RDFa 1.1.
 - Vocabulary checks cover schema.org (core, pending and the hosted extensions). Terms from other vocabularies are skipped.
-- Before publishing, change the Gecko ID in the manifest if you won't use `jaredcaraway.com`.
+- Before publishing, change the Gecko ID in `manifest/firefox.json` if you won't use `jaredcaraway.com`.

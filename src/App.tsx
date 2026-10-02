@@ -9,7 +9,7 @@ import {
 } from '@tabler/icons-react';
 import { buildGraph, toJsonLd } from './lib/graph';
 import type { PageData, Severity } from './lib/types';
-import { activeTab, download, extractFrom, hasHostPermission, onActivePageChange, openTab, originalFrom, requestHostPermission } from './lib/browser';
+import { activeTab, BROWSER_NAME, download, extractFrom, hasHostPermission, IN_EXTENSION, onActivePageChange, openTab, originalFrom, requestHostPermission } from './lib/browser';
 import { classifyOrigins } from './lib/provenance';
 import { GraphView } from './components/GraphView';
 import { TreeView } from './components/TreeView';
@@ -19,7 +19,6 @@ import { EntityDetail, TypeBadges } from './components/EntityDetail';
 import { DEMO_PAGE } from './demo';
 
 type Status = 'loading' | 'ready' | 'permission' | 'restricted' | 'error';
-const IN_EXTENSION = typeof browser !== 'undefined' && !!browser?.scripting;
 const RANK: Record<Severity, number> = { error: 3, warning: 2, info: 1 };
 /** Height of the entity drawer. It floats over the tab content, so the scrolling views pad by this much while it's open. */
 const DRAWER_SIZE = '62vh';
@@ -150,7 +149,7 @@ export function App() {
       {status === 'permission' && (
         <Empty icon={<IconLock size={22} />} title="Allow page access">
           <Text size="sm" c="dimmed" ta="center">
-            Entity Viewer reads structured data from the pages you view. Firefox needs your OK first. Nothing leaves your browser.
+            Entity Viewer reads structured data from the pages you view. {BROWSER_NAME} needs your OK first. Nothing leaves your browser.
           </Text>
           <Button
             size="xs"
@@ -169,7 +168,7 @@ export function App() {
       {status === 'restricted' && (
         <Empty icon={<IconWorldOff size={22} />} title="Nothing to read here">
           <Text size="sm" c="dimmed" ta="center">
-            Firefox doesn't let extensions read this page (internal pages, add-on store, PDF viewer). Switch to a regular website.
+            {BROWSER_NAME} doesn't let extensions read this page (internal pages, extension stores, PDF viewer). Switch to a regular website.
           </Text>
         </Empty>
       )}
