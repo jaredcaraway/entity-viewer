@@ -26,8 +26,13 @@ Temporary add-ons are removed when Firefox restarts. To install it permanently, 
   - properties Google expects for rich results, for about 25 types plus common subtypes (MedicalClinic, Physician, HVACBusiness, and so on);
   - dates and durations that aren't ISO 8601, relative URLs, prices containing currency symbols, `priceCurrency` values that aren't ISO 4217, and ratings out of range;
   - **schema.org vocabulary:** unknown types and properties (with "did you mean" suggestions), properties used on the wrong type, references to the wrong kind of entity, entities where only text, numbers or dates are allowed, invalid enumeration values (`"InStok"`), and retired or superseded terms. Checks are lenient: plain text where an entity is expected is always allowed;
+  - **competing sources:** the same `@id` given different values by different blocks (e.g. Yoast and Rank Math disagreeing on the Organization's `name`), separate entities of a once-per-page type (Product, Organization, WebPage, BreadcrumbList, Article…) from different plugins or templates, and entities assembled from several sources;
+  - **JavaScript-injected blocks:** JSON-LD that isn't in the HTML the server sent, which crawlers that don't run scripts won't see, and server-sent blocks that scripts removed;
   - **markup vs. visible content:** prices, ratings and review counts, product, recipe, event and course names, article headlines, job titles, author and reviewer names, and FAQ questions and answers that don't appear in the page's visible text, which Google treats as a spam signal. Number matching accepts US and European formats and the page's displayed rounding.
-- **Raw:** every extracted block, with a copy button.
+- **Raw:** every extracted block, with a copy button. JSON-LD blocks show:
+  - the plugin, app or platform that wrote them, detected from the script's `id`/`class`/`data-*` attributes (`yoast-schema-graph`, `rank-math-schema`, `aioseo-schema`…), Shopify section and app-block wrappers, the plugin comment before the script ("optimized with the Yoast SEO plugin") and `@id` patterns (Yoast's `#/schema/person/`). Block labels read e.g. "json-ld#2 · Rank Math" throughout;
+  - whether the block was in the HTML the server sent, changed by JavaScript or added by JavaScript. The sidebar re-fetches the page (from the HTTP cache when possible) from inside the tab to compare.
+- **Entity detail:** when several blocks define one entity, each value shows the block it came from.
 - **Export menu:** download the merged graph as `.jsonld`, or open the page in the Schema Markup Validator or Google's Rich Results Test.
 - **Toolbar badge:** shows the entity count for each tab, and turns red when a block fails to parse.
 - **Live updates:** the sidebar re-scans when you switch tabs or a page finishes loading. Use the refresh button for schema that a single-page app injects later.
@@ -53,6 +58,8 @@ Built with React, Mantine 9 (custom "lagoon" teal theme with navy-tinted dark mo
 | `public/extract.js` | Injected on demand. Plain JS that returns `{url, title, blocks[]}` |
 | `public/background.js` | Toggles the sidebar from the toolbar button and keeps the badge count updated |
 | `src/lib/graph.ts` | Normalizes blocks into entities and edges, and merges nodes by `@id` |
+| `src/lib/provenance.ts` | Generator detection, and the comparison with the HTML the server sent |
+| `src/lib/competing.ts` | Checks for blocks that compete to define the same entity |
 | `src/lib/validate.ts` | SEO rules, vocabulary checks and the visible-content check. Add types to `RULES`; subtypes inherit rules through the vocabulary |
 | `src/lib/vocab.ts` | Lookups over the bundled schema.org vocabulary |
 | `src/lib/visible.ts` | Text and number matching against the page's visible text |
@@ -70,6 +77,8 @@ Download the latest `schemaorg-all-https.jsonld` from [schema.org/docs/developer
 ## Limits
 
 - The visible-content check reads the page's rendered text. It can't see text inside iframes or shadow DOM, doesn't parse compact counts ("1.2K"), and content hidden in collapsed accordions or tabs counts as not visible.
+- Generator detection relies on markup that plugins add. Blocks a plugin writes without markers, or that a tag manager injects, show no generator. The origin check marks those as added by JavaScript but can't name the script that added them.
+- The server-vs-live comparison re-requests the page. Pages that vary per request (nonces, timestamps inside JSON-LD) may show as "changed by JS".
 - RDFa support covers RDFa Lite (`vocab`, `typeof`, `property`, `resource`, `prefix`), not all of RDFa 1.1.
 - Vocabulary checks cover schema.org (core, pending and the hosted extensions). Terms from other vocabularies are skipped.
 - Before publishing, change the Gecko ID in the manifest if you won't use `jaredcaraway.com`.

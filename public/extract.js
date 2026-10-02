@@ -16,11 +16,39 @@
   };
 
   /* ---------------- JSON-LD ---------------- */
+  const clip = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
+  // Plugins close their section with comments like "/ Yoast SEO plugin." or "End Rank Math".
+  const CLOSING_COMMENT = /^\s*(\/|end\b)/i;
+
+  /** Markup around the script that can identify what wrote it. */
+  function jsonLdHints(s) {
+    const hints = {};
+    const attrs = {};
+    for (const a of s.attributes) {
+      if (a.name === 'id' || a.name === 'class' || a.name.startsWith('data-')) attrs[a.name] = clip(a.value, 120);
+    }
+    if (Object.keys(attrs).length) hints.attrs = attrs;
+    let n = s.previousSibling;
+    for (let steps = 0; n && steps < 60; n = n.previousSibling, steps++) {
+      // A comment before an earlier JSON-LD script belongs to that script.
+      if (n.nodeType === 1 && n.matches('script[type="application/ld+json" i]')) break;
+      if (n.nodeType !== 8) continue;
+      const text = squash(n.textContent);
+      if (!CLOSING_COMMENT.test(text) && text) hints.comment = clip(text, 160);
+      break;
+    }
+    const container = s.parentElement && s.parentElement.closest('[id]');
+    if (container) hints.container = clip(container.id, 80);
+    return Object.keys(hints).length ? hints : undefined;
+  }
+
   function jsonLdBlocks() {
     const out = [];
     document.querySelectorAll('script[type="application/ld+json" i]').forEach((s, index) => {
       const raw = s.textContent || '';
       const block = { source: 'json-ld', index, raw };
+      const hints = jsonLdHints(s);
+      if (hints) block.hints = hints;
       try {
         block.data = JSON.parse(raw);
       } catch (e1) {

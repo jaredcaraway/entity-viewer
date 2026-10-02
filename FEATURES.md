@@ -1,8 +1,8 @@
 # Feature Roadmap
 
-Candidate features to make Entity Viewer useful to SEOs and developers beyond personal use. Ordered by priority. Current state: v0.1.1, signed unlisted on AMO (see README for what exists today).
+Candidate features to make Entity Viewer useful to SEOs and developers beyond personal use. Ordered by priority. Current state: v0.2.0 (v0.1.1 signed unlisted on AMO) (see README for what exists today).
 
-**Done:** full vocabulary validation (1.1) and the page-content mismatch check (1.3). See `docs/superpowers/specs/2026-10-02-vocab-and-mismatch-validation-design.md`. **Next:** rich-result eligibility verdicts (1.2).
+**Done:** full vocabulary validation (1.1), the page-content mismatch check (1.3) and block provenance (2.3). See `docs/superpowers/specs/2026-10-02-vocab-and-mismatch-validation-design.md`. **Next:** rich-result eligibility verdicts (1.2).
 
 ## 1. Trustworthy validation
 
@@ -30,6 +30,10 @@ Candidate features to make Entity Viewer useful to SEOs and developers beyond pe
 ### 2.2 Compare two pages or versions
 - Diff the entity graph of the current scan against the previous scan of the same URL, or against another URL (staging vs. production). Show added, removed and changed entities and properties.
 - Storing previous scans requires adding the `storage` permission to the manifest.
+
+### 2.3 Block provenance — DONE
+- Label each JSON-LD block by the plugin or app that wrote it, tell server-rendered blocks from JavaScript-injected ones, and flag blocks that compete to define the same entity.
+- **Later, optional:** a document_start MAIN-world script that records stack traces for DOM insertions, to name the exact injecting script (e.g. gtm.js). Costs: runs on every page, needs a reload to capture, more AMO review.
 
 ## 3. Fix, don't just report
 

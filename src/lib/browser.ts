@@ -1,4 +1,5 @@
 import type { PageData } from './types';
+import { originalJsonLd } from './provenance';
 
 export const ALL_URLS = { origins: ['<all_urls>'] };
 
@@ -23,6 +24,15 @@ export async function extractFrom(tabId: number): Promise<PageData> {
   const [res] = await browser.scripting.executeScript({ target: { tabId }, files: ['extract.js'] });
   if (!res || !res.result) throw new Error('The page returned no data.');
   return res.result as PageData;
+}
+
+/** The JSON-LD scripts in the HTML the server sends for the tab's URL. */
+export async function originalFrom(tabId: number): Promise<string[]> {
+  const [res] = await browser.scripting.executeScript({ target: { tabId }, func: originalJsonLd });
+  const out = res?.result as Awaited<ReturnType<typeof originalJsonLd>> | undefined;
+  if (!out) throw new Error('The page returned no data.');
+  if (!Array.isArray(out)) throw new Error(out.error);
+  return out;
 }
 
 /** Calls `cb` whenever the active tab in this sidebar's window changes or finishes loading. */
