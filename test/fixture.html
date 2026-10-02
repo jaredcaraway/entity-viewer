@@ -1,0 +1,18 @@
+<!doctype html><html><head><title>Fixture</title>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+ {"@type":"MedicalClinic","@id":"https://ex.com/#org","name":"Ex Clinic","url":"https://ex.com/","logo":{"@type":"ImageObject","url":"https://ex.com/logo.png"},"address":{"@id":"https://ex.com/#addr"}},
+ {"@type":"PostalAddress","@id":"https://ex.com/#addr","streetAddress":"1 Main","addressLocality":"Richmond"},
+ {"@type":"WebPage","@id":"https://ex.com/p#webpage","isPartOf":{"@id":"https://ex.com/#website"},"publisher":{"@id":"https://ex.com/#org"},"datePublished":"May 3 2024"}
+]}
+</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Product","name":"Widget","offers":{"@type":"Offer","price":"$1,299","priceCurrency":"usd"}}</script>
+<script type="application/ld+json">{ "@type": "Thing", bad json }</script>
+</head><body>
+<div itemscope itemtype="https://schema.org/Person"><span itemprop="name">Jane Doe</span>
+ <div itemprop="address" itemscope itemtype="https://schema.org/PostalAddress"><span itemprop="addressLocality">Houston</span></div>
+ <a itemprop="url" href="/jane">Jane</a></div>
+<div vocab="https://schema.org/" typeof="Event"><span property="name">Meetup</span>
+ <time property="startDate" datetime="2026-11-01T18:00">Nov 1</time>
+ <div property="location" typeof="Place"><span property="name">Library</span></div></div>
+</body></html>

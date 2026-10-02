@@ -1,0 +1,7 @@
+node_modules/
+dist/
+web-ext-artifacts/
+*.zip
+*.xpi
+.DS_Store
+src/lib/vocab.json

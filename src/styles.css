@@ -1,0 +1,3 @@
+html, body, #root { height: 100%; margin: 0; }
+body { overflow: hidden; }
+[data-mantine-color-scheme='dark'] body { background: var(--mantine-color-dark-8); }
