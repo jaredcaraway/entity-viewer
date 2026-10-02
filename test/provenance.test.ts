@@ -30,8 +30,18 @@ test('extract.js records attributes, the nearest comment and the container id', 
   const [yoast, after, shopify] = page.blocks;
   assert.deepEqual({ ...yoast.hints?.attrs }, { class: 'yoast-schema-graph', 'data-foo': 'bar' });
   assert.match(yoast.hints?.comment ?? '', /^This site is optimized with the Yoast SEO plugin/);
-  assert.equal(after.hints, undefined, 'a closing comment ends the search');
+  assert.equal(yoast.hints?.commentAfter, '/ Yoast SEO plugin.');
+  assert.equal(detectGenerator(yoast)?.name, 'Yoast SEO');
+  assert.equal(after.hints?.comment, '/ Yoast SEO plugin.');
+  assert.equal(detectGenerator(after), undefined, 'a script after the closing comment is not the plugin\'s');
   assert.equal(shopify.hints?.container, 'shopify-section-main-product');
+});
+
+test('a plugin whose closing comment repeats its name only claims the script it wraps', () => {
+  const page = scan(`<html><head><!-- All in One SEO 4.5 - aioseo.com -->${ld({ '@type': 'WebSite' })}<!-- All in One SEO -->
+    <meta name="a"><meta name="b">${ld({ '@type': 'Organization', name: 'x' })}</head></html>`);
+  assert.equal(detectGenerator(page.blocks[0])?.name, 'All in One SEO');
+  assert.equal(detectGenerator(page.blocks[1]), undefined);
 });
 
 test("a plugin's comment isn't credited to a later JSON-LD script", () => {
@@ -49,17 +59,23 @@ test('generators are detected from attributes, containers, comments and @id patt
   assert.equal(gen({ hints: { attrs: { class: 'aioseo-schema' } } })?.name, 'All in One SEO');
   assert.equal(gen({ hints: { attrs: { 'data-generator': 'seopress' } } })?.name, 'SEOPress');
   assert.equal(gen({ hints: { attrs: { id: 'product-json' } } }), undefined);
+  assert.equal(gen({ hints: { attrs: { class: 'wp-schema-pro-graph' } } })?.name, 'Schema Pro');
+  for (const id of ['schema-product', 'schema-profile', 'myyoastish']) assert.equal(gen({ hints: { attrs: { id } } }), undefined, id);
+  assert.equal(gen({ hints: { attrs: { 'data-schema-provider': 'x' } } }), undefined);
   assert.deepEqual(gen({ hints: { container: 'shopify-section-template--123__main' } }), { name: 'Shopify theme', via: 'section "template--123__main"' });
   assert.equal(gen({ hints: { container: 'shopify-block-AbC123' } })?.name, 'Shopify app');
-  assert.equal(gen({ hints: { comment: 'Search Engine Optimization by Rank Math PRO - https://rankmath.com/' } })?.name, 'Rank Math');
-  assert.equal(gen({ hints: { comment: 'Google tag (gtag.js)' } }), undefined);
+  assert.equal(gen({ hints: { comment: 'Search Engine Optimization by Rank Math PRO - https://rankmath.com/', commentAfter: '/Rank Math WordPress SEO plugin' } })?.name, 'Rank Math');
+  assert.equal(gen({ hints: { comment: 'Search Engine Optimization by Rank Math PRO' } }), undefined, 'needs the closing comment too');
+  assert.equal(gen({ hints: { comment: 'Yoast SEO', commentAfter: 'Google tag (gtag.js)' } }), undefined);
   const yoastId = gen({}, { '@graph': [{ '@type': 'Person', '@id': 'https://ex.com/#/schema/person/abc' }] });
   assert.deepEqual(yoastId, { name: 'Yoast SEO', via: '@id pattern #/schema/', likely: true });
+  // Referencing Yoast's Person isn't the same as being Yoast.
+  assert.equal(gen({}, { '@type': 'Review', author: { '@id': 'https://ex.com/#/schema/person/abc' } }), undefined);
   const woo = detectGenerator({ source: 'json-ld', index: 0, raw: '{"@context":"https:\\/\\/schema.org\\/","@type":"Product"}', data: {} });
   assert.equal(woo?.name, 'WooCommerce');
   assert.equal(woo?.likely, true);
   // Attributes win over weaker evidence.
-  assert.equal(gen({ hints: { attrs: { class: 'aioseo-schema' }, comment: 'Yoast SEO' } })?.name, 'All in One SEO');
+  assert.equal(gen({ hints: { attrs: { class: 'aioseo-schema' }, comment: 'Yoast SEO', commentAfter: 'Yoast SEO' } })?.name, 'All in One SEO');
 });
 
 test('block labels carry the generator', () => {
@@ -84,6 +100,17 @@ test('classifyOrigins tells static, modified and injected blocks apart', () => {
   assert.equal(removed, 1);
 });
 
+test('originals are parsed as leniently as the live blocks', () => {
+  // Wrapped in a comment on the server, then edited by a script.
+  const live = block(0, { '@type': 'Product', name: 'Widget', offers: { '@type': 'Offer', price: '7' } });
+  const wrapped = `<!-- ${JSON.stringify({ '@context': CTX, '@type': 'Product', name: 'Widget', offers: { '@type': 'Offer', price: '5' } })} -->`;
+  assert.deepEqual(classifyOrigins([live], [wrapped]), { blocks: [{ ...live, origin: 'modified' }], removed: 0 });
+  // An empty placeholder a script fills in isn't a removed block.
+  const { blocks, removed } = classifyOrigins([live], ['  ']);
+  assert.equal(blocks[0].origin, 'injected');
+  assert.equal(removed, 0);
+});
+
 test('identical blocks each need their own original', () => {
   const a = block(0, { '@type': 'Thing', name: 'x' });
   const b = block(1, { '@type': 'Thing', name: 'x' });
@@ -98,27 +125,36 @@ test('injected and removed blocks are reported', () => {
   assert.ok(!messages([block(0, { '@type': 'Thing', name: 'x' }, { origin: 'static' })]).some((m) => /JavaScript/.test(m)));
 });
 
-test('originalJsonLd fetches the page and returns its JSON-LD scripts', async () => {
+test('originalJsonLd reads the page from the cache, or fetches it when asked', async () => {
   const { window } = new JSDOM('', { url: 'https://ex.com/p' });
   const g = globalThis as Record<string, unknown>;
   const saved = { fetch: g.fetch, DOMParser: g.DOMParser, location: g.location };
+  const html = `<html><head>${ld({ '@type': 'Thing' })}<script>var x</script><noscript>${ld({ '@type': 'Hidden' })}</noscript></head></html>`;
   try {
     g.DOMParser = window.DOMParser;
     g.location = window.location;
-    let asked: [string, RequestInit?] | undefined;
+    const asked: [string, RequestInit?][] = [];
     g.fetch = async (url: string, init?: RequestInit) => {
-      asked = [url, init];
-      return new Response(`<html><head>${ld({ '@type': 'Thing' })}<script>var x</script></head></html>`, { headers: { 'content-type': 'text/html; charset=utf-8' } });
+      asked.push([url, init]);
+      return new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8' } });
     };
-    const out = await originalJsonLd();
-    assert.equal(asked?.[0], 'https://ex.com/p');
-    assert.equal(asked?.[1]?.cache, 'force-cache');
-    assert.deepEqual(out, [JSON.stringify({ '@context': CTX, '@type': 'Thing' })]);
+    assert.deepEqual(await originalJsonLd('https://ex.com/p', false), [JSON.stringify({ '@context': CTX, '@type': 'Thing' })]);
+    assert.equal(asked[0][0], 'https://ex.com/p');
+    assert.equal(asked[0][1]?.cache, 'only-if-cached');
+    await originalJsonLd('https://ex.com/p', true);
+    assert.equal(asked[1][1]?.cache, 'force-cache');
 
+    assert.deepEqual(await originalJsonLd('https://ex.com/other', true), { error: 'the page changed since the scan' });
+    assert.equal(asked.length, 2, 'no request after a navigation');
+
+    g.fetch = async () => { throw new TypeError('NetworkError'); };
+    assert.deepEqual(await originalJsonLd('https://ex.com/p', false), { error: 'not in the cache', notCached: true });
+    g.fetch = async () => new Response('', { status: 504 });
+    assert.deepEqual(await originalJsonLd('https://ex.com/p', false), { error: 'not in the cache', notCached: true });
     g.fetch = async () => new Response('nope', { status: 404 });
-    assert.deepEqual(await originalJsonLd(), { error: 'HTTP 404' });
+    assert.deepEqual(await originalJsonLd('https://ex.com/p', true), { error: 'HTTP 404' });
     g.fetch = async () => new Response('{}', { headers: { 'content-type': 'application/json' } });
-    assert.deepEqual(await originalJsonLd(), { error: 'not an HTML response' });
+    assert.deepEqual(await originalJsonLd('https://ex.com/p', true), { error: 'not an HTML response' });
   } finally {
     Object.assign(g, saved);
   }
@@ -217,6 +253,8 @@ test('repeated entities from one source are not competing', () => {
     block(0, { '@type': 'Product', name: 'A' }, YOAST),
     block(1, { '@type': 'Product', name: 'B' }, YOAST),
   ]).some((m) => /separate Product/.test(m)));
+  // Nor is a listing that writes one unmarked JSON-LD block per item.
+  assert.ok(!messages([0, 1, 2].map((i) => block(i, { '@type': 'Event', name: `E${i}`, startDate: '2026-11-01', location: 'x' }))).some((m) => /separate Event/.test(m)));
   // Several Products in one block (a listing) aren't flagged either.
   assert.ok(!messages([block(0, { '@graph': [{ '@type': 'Product', name: 'A' }, { '@type': 'Product', name: 'B' }] })]).some((m) => /separate/.test(m)));
 });

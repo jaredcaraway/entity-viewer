@@ -7,8 +7,10 @@ export type Origin = 'static' | 'modified' | 'injected';
 export interface BlockHints {
   /** id, class and data-* attributes of the script element. */
   attrs?: Record<string, string>;
-  /** The nearest preceding HTML comment in the same parent, e.g. "This site is optimized with the Yoast SEO plugin". */
+  /** The nearest HTML comment before the script in the same parent, e.g. "This site is optimized with the Yoast SEO plugin". */
   comment?: string;
+  /** The nearest HTML comment after it, e.g. "/ Yoast SEO plugin.". */
+  commentAfter?: string;
   /** The id of the nearest ancestor element that has one, e.g. "shopify-section-main-product". */
   container?: string;
 }

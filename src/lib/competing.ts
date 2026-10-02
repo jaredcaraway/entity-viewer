@@ -1,6 +1,7 @@
 import type { Block, Entity, Generator, Issue, PropValue } from './types';
 import { ancestors } from './vocab';
 import { blockLabel } from './provenance';
+import { blockKey, clip } from './util';
 
 /** Types a page normally defines once. Two of them from different sources are probably competing. */
 const SINGLETONS = new Set([
@@ -8,7 +9,6 @@ const SINGLETONS = new Set([
   'JobPosting', 'Course', 'SoftwareApplication',
 ]);
 
-const clip = (s: string, n = 40) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
 const compareKey = (v: PropValue) => (v.kind === 'ref' ? `ref:${v.id}` : `lit:${String(v.value ?? '').trim()}`);
 
 /**
@@ -25,13 +25,14 @@ export function competingIssues(
 ): Issue[] {
   const issues: Issue[] = [];
   const label = (bk: string) => blockLabel(bk, generators);
-  const kind = new Map(blocks.map((b) => [`${b.source}#${b.index + 1}`, b.source]));
-  // Blocks from one generator, or microdata/RDFa from one template, count as one source.
-  const identity = (bk: string) => generators.get(bk)?.name ?? (kind.get(bk) === 'json-ld' ? bk : kind.get(bk)) ?? bk;
+  const kind = new Map(blocks.map((b) => [blockKey(b), b.source]));
+  // Blocks from one generator count as one source, and so do unattributed blocks of one syntax:
+  // a listing page that writes one JSON-LD block per item isn't competing with itself.
+  const identity = (bk: string) => generators.get(bk)?.name ?? kind.get(bk) ?? bk;
   const show = (v: PropValue) => {
-    if (v.kind === 'literal') return `"${clip(String(v.value))}"`;
+    if (v.kind === 'literal') return `"${clip(String(v.value), 40)}"`;
     const t = entities.get(v.id);
-    return t?.label ? `→ ${clip(t.label)}` : `→ ${clip(v.id)}`;
+    return t?.label ? `→ ${clip(t.label, 40)}` : `→ ${clip(v.id, 40)}`;
   };
 
   for (const e of entities.values()) {

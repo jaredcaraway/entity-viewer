@@ -1,17 +1,12 @@
-import type { Block, Edge, Entity, Generator, Graph, Issue, PageData, PropValue } from './types';
+import type { Edge, Entity, Generator, Graph, Issue, PageData, PropValue } from './types';
 import { validate } from './validate';
 import { blockLabel, detectGenerator } from './provenance';
 import { competingIssues } from './competing';
+import { blockKey, isObj, toArray } from './util';
 
 const SCHEMA_PREFIX = /^(https?:\/\/schema\.org\/|schema:)/i;
 export const shortName = (s: string) => s.replace(SCHEMA_PREFIX, '');
-export const blockKey = (b: Pick<Block, 'source' | 'index'>) => `${b.source}#${b.index + 1}`;
-
-const toArray = <T,>(v: T | T[] | undefined | null): T[] =>
-  v === undefined || v === null ? [] : Array.isArray(v) ? v : [v];
-
-const isObj = (v: unknown): v is Record<string, unknown> =>
-  typeof v === 'object' && v !== null && !Array.isArray(v);
+export { blockKey };
 
 const LABEL_KEYS = ['name', 'headline', 'title', 'alternateName', 'legalName', 'text'];
 

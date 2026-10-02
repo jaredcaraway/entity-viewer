@@ -1,5 +1,5 @@
 import type { PageData } from './types';
-import { originalJsonLd } from './provenance';
+import { originalJsonLd, type OriginalResult } from './provenance';
 
 export const ALL_URLS = { origins: ['<all_urls>'] };
 
@@ -26,13 +26,10 @@ export async function extractFrom(tabId: number): Promise<PageData> {
   return res.result as PageData;
 }
 
-/** The JSON-LD scripts in the HTML the server sends for the tab's URL. */
-export async function originalFrom(tabId: number): Promise<string[]> {
-  const [res] = await browser.scripting.executeScript({ target: { tabId }, func: originalJsonLd });
-  const out = res?.result as Awaited<ReturnType<typeof originalJsonLd>> | undefined;
-  if (!out) throw new Error('The page returned no data.');
-  if (!Array.isArray(out)) throw new Error(out.error);
-  return out;
+/** The JSON-LD scripts in the HTML the server sends for `url`, read in the tab (from the HTTP cache unless `network`). */
+export async function originalFrom(tabId: number, url: string, network: boolean): Promise<OriginalResult> {
+  const [res] = await browser.scripting.executeScript({ target: { tabId }, func: originalJsonLd, args: [url, network] });
+  return (res?.result as OriginalResult | undefined) ?? { error: 'the page returned no data' };
 }
 
 /** Calls `cb` whenever the active tab in this sidebar's window changes or finishes loading. */

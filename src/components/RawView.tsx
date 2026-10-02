@@ -1,4 +1,4 @@
-import { ActionIcon, Alert, Badge, Code, CopyButton, Group, Paper, ScrollArea, Stack, Text, Tooltip } from '@mantine/core';
+import { ActionIcon, Alert, Badge, Button, Code, CopyButton, Group, Paper, ScrollArea, Stack, Text, Tooltip } from '@mantine/core';
 import { IconCheck, IconCopy } from '@tabler/icons-react';
 import type { Block, BlockHints, Generator, Origin } from '../lib/types';
 import { blockKey } from '../lib/graph';
@@ -17,16 +17,33 @@ function hintText(h: BlockHints): string {
   for (const [k, v] of Object.entries(h.attrs ?? {})) parts.push(`${k}="${v}"`);
   if (h.container) parts.push(`inside #${h.container}`);
   if (h.comment) parts.push(`after <!-- ${h.comment} -->`);
+  if (h.commentAfter) parts.push(`before <!-- ${h.commentAfter} -->`);
   return parts.join(' · ');
 }
 
-export function RawView({ blocks, generators, note }: { blocks: Block[]; generators: Map<string, Generator>; note?: string }) {
+interface Props {
+  blocks: Block[];
+  generators: Map<string, Generator>;
+  /** Status of the comparison with the server's HTML. */
+  note?: string;
+  /** Set when that comparison needs the page requested again, which the user confirms by clicking. */
+  onFetchOriginal?: () => void;
+}
+
+export function RawView({ blocks, generators, note, onFetchOriginal }: Props) {
   return (
     <Stack gap="sm" p="xs">
       {note && (
-        <Text size="xs" c="dimmed">
-          {note}
-        </Text>
+        <Group gap="xs" wrap="nowrap" align="center">
+          <Text size="xs" c="dimmed" style={{ flex: 1 }}>
+            {note}
+          </Text>
+          {onFetchOriginal && (
+            <Button size="compact-xs" variant="light" onClick={onFetchOriginal}>
+              Request page
+            </Button>
+          )}
+        </Group>
       )}
       {blocks.map((b) => {
         const text = b.raw && b.error ? b.raw : JSON.stringify(b.data, null, 2);

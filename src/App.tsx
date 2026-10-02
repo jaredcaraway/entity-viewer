@@ -30,13 +30,39 @@ export function App() {
   const [selected, setSelected] = useState<string | undefined>();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [originNote, setOriginNote] = useState<string | undefined>();
+  /** Set when the page's HTML isn't cached; fetching it again needs a click. */
+  const [originFetch, setOriginFetch] = useState<(() => void) | undefined>();
   const loads = useRef(0);
+
+  /** Compares the scanned blocks with the HTML the server sent, to tell server-rendered blocks from injected ones. */
+  const compareOrigins = useCallback(async (seq: number, tabId: number, data: PageData, network: boolean) => {
+    setOriginFetch(undefined);
+    setOriginNote('Comparing with the HTML the server sent…');
+    let out;
+    try {
+      out = await originalFrom(tabId, data.url, network);
+    } catch (e) {
+      out = { error: e instanceof Error ? e.message : String(e) };
+    }
+    if (seq !== loads.current) return;
+    if (Array.isArray(out)) {
+      const { blocks, removed } = classifyOrigins(data.blocks, out);
+      setPage({ ...data, blocks, removedBlocks: removed });
+      setOriginNote(undefined);
+    } else if (out.notCached) {
+      setOriginNote("The page's HTML isn't cached. Requesting it again tells server-rendered blocks from ones added by JavaScript.");
+      setOriginFetch(() => () => compareOrigins(seq, tabId, data, true));
+    } else {
+      setOriginNote(`Couldn't get the server's HTML to tell server-rendered blocks from injected ones (${out.error}).`);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     const seq = ++loads.current;
     setSelected(undefined);
     setDrawerOpen(false);
     setOriginNote(undefined);
+    setOriginFetch(undefined);
     if (!IN_EXTENSION) {
       setPage(DEMO_PAGE);
       setStatus('ready');
@@ -56,27 +82,18 @@ export function App() {
     let data: PageData;
     try {
       data = await extractFrom(t.id);
+      // A newer load (tab switch, page load) may have finished first.
+      if (seq !== loads.current) return;
       setPage(data);
       setStatus('ready');
     } catch (e) {
+      if (seq !== loads.current) return;
       setErrorMsg(e instanceof Error ? e.message : String(e));
       setStatus(/Missing host permission|cannot be scripted|privileged/i.test(String(e)) ? 'restricted' : 'error');
       return;
     }
-    // Then compare with the HTML the server sent, to tell server-rendered blocks from injected ones.
-    if (!data.blocks.some((b) => b.source === 'json-ld')) return;
-    setOriginNote('Comparing with the HTML the server sent…');
-    try {
-      const original = await originalFrom(t.id);
-      if (seq !== loads.current) return;
-      const { blocks, removed } = classifyOrigins(data.blocks, original);
-      setPage({ ...data, blocks, removedBlocks: removed });
-      setOriginNote(undefined);
-    } catch (e) {
-      if (seq !== loads.current) return;
-      setOriginNote(`Couldn't fetch the server's HTML to tell server-rendered blocks from injected ones (${e instanceof Error ? e.message : e}).`);
-    }
-  }, []);
+    if (data.blocks.some((b) => b.source === 'json-ld')) await compareOrigins(seq, t.id, data, false);
+  }, [compareOrigins]);
 
   useEffect(() => {
     load();
@@ -221,7 +238,7 @@ export function App() {
             </Tabs.Panel>
             <Tabs.Panel value="raw" style={{ flex: 1, minHeight: 0 }}>
               <ScrollArea h="100%">
-                <RawView blocks={page!.blocks} generators={graph.generators} note={originNote} />
+                <RawView blocks={page!.blocks} generators={graph.generators} note={originNote} onFetchOriginal={originFetch} />
               </ScrollArea>
             </Tabs.Panel>
           </Tabs>

@@ -17,8 +17,17 @@
 
   /* ---------------- JSON-LD ---------------- */
   const clip = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
-  // Plugins close their section with comments like "/ Yoast SEO plugin." or "End Rank Math".
-  const CLOSING_COMMENT = /^\s*(\/|end\b)/i;
+  const isJsonLd = (n) => n.nodeType === 1 && n.matches('script[type="application/ld+json" i]');
+
+  /** The nearest comment in one direction, stopping at another JSON-LD script (whose comment it would be). */
+  function nearestComment(s, dir) {
+    let n = s[dir];
+    for (let steps = 0; n && steps < 60; n = n[dir], steps++) {
+      if (isJsonLd(n)) return undefined;
+      if (n.nodeType === 8) return clip(squash(n.textContent), 160) || undefined;
+    }
+    return undefined;
+  }
 
   /** Markup around the script that can identify what wrote it. */
   function jsonLdHints(s) {
@@ -28,15 +37,11 @@
       if (a.name === 'id' || a.name === 'class' || a.name.startsWith('data-')) attrs[a.name] = clip(a.value, 120);
     }
     if (Object.keys(attrs).length) hints.attrs = attrs;
-    let n = s.previousSibling;
-    for (let steps = 0; n && steps < 60; n = n.previousSibling, steps++) {
-      // A comment before an earlier JSON-LD script belongs to that script.
-      if (n.nodeType === 1 && n.matches('script[type="application/ld+json" i]')) break;
-      if (n.nodeType !== 8) continue;
-      const text = squash(n.textContent);
-      if (!CLOSING_COMMENT.test(text) && text) hints.comment = clip(text, 160);
-      break;
-    }
+    // Plugins wrap their output in an opening and a closing comment ("Yoast SEO plugin" … "/ Yoast SEO plugin.").
+    const before = nearestComment(s, 'previousSibling');
+    const after = nearestComment(s, 'nextSibling');
+    if (before) hints.comment = before;
+    if (after) hints.commentAfter = after;
     const container = s.parentElement && s.parentElement.closest('[id]');
     if (container) hints.container = clip(container.id, 80);
     return Object.keys(hints).length ? hints : undefined;
