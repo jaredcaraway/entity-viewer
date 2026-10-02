@@ -27,6 +27,7 @@ Temporary add-ons are removed when Firefox restarts. To install it permanently, 
   - dates and durations that aren't ISO 8601, relative URLs, prices containing currency symbols, `priceCurrency` values that aren't ISO 4217, and ratings out of range;
   - **schema.org vocabulary:** unknown types and properties (with "did you mean" suggestions), properties used on the wrong type, references to the wrong kind of entity, entities where only text, numbers or dates are allowed, invalid enumeration values (`"InStok"`), and retired or superseded terms. Checks are lenient: plain text where an entity is expected is always allowed;
   - **competing sources:** the same `@id` given different values by different blocks (e.g. Yoast and Rank Math disagreeing on the Organization's `name`), separate entities of a once-per-page type (Product, Organization, WebPage, BreadcrumbList, Article…) from different plugins or templates, and entities assembled from several sources;
+  - **disconnected graphs:** structured data that forms separate islands instead of one graph. Flags the same thing defined in two islands without a shared `@id` (e.g. Yoast's Organization and a product block's inline `brand`), missing standard links (`WebPage.isPartOf` → WebSite, `breadcrumb`, `mainEntity`, `WebSite.publisher`, `Article.author`) with the `@id` to add, and anything else left apart from the main graph. A listing's same-shaped items from one source are reported once;
   - **JavaScript-injected blocks:** JSON-LD that isn't in the HTML the server sent, which crawlers that don't run scripts won't see, and server-sent blocks that scripts removed;
   - **markup vs. visible content:** prices, ratings and review counts, product, recipe, event and course names, article headlines, job titles, author and reviewer names, and FAQ questions and answers that don't appear in the page's visible text, which Google treats as a spam signal. Number matching accepts US and European formats and the page's displayed rounding.
 - **Raw:** every extracted block, with a copy button. JSON-LD blocks show:
@@ -60,6 +61,7 @@ Built with React, Mantine 9 (custom "lagoon" teal theme with navy-tinted dark mo
 | `src/lib/graph.ts` | Normalizes blocks into entities and edges, and merges nodes by `@id` |
 | `src/lib/provenance.ts` | Generator detection, and the comparison with the HTML the server sent |
 | `src/lib/competing.ts` | Checks for blocks that compete to define the same entity |
+| `src/lib/islands.ts` | Finds disconnected graphs (connected components) and suggests how to join them |
 | `src/lib/validate.ts` | SEO rules, vocabulary checks and the visible-content check. Add types to `RULES`; subtypes inherit rules through the vocabulary |
 | `src/lib/vocab.ts` | Lookups over the bundled schema.org vocabulary |
 | `src/lib/visible.ts` | Text and number matching against the page's visible text |

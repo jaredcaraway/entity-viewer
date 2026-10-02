@@ -2,6 +2,7 @@ import type { Edge, Entity, Generator, Graph, Issue, PageData, PropValue } from 
 import { validate } from './validate';
 import { blockLabel, detectGenerator } from './provenance';
 import { competingIssues } from './competing';
+import { islandIssues } from './islands';
 import { blockKey, isObj, toArray } from './util';
 
 const SCHEMA_PREFIX = /^(https?:\/\/schema\.org\/|schema:)/i;
@@ -176,6 +177,7 @@ export function buildGraph(page: PageData): Graph {
   }
 
   issues.push(...competingIssues(entities, rootsByBlock, page.blocks, generators));
+  issues.push(...islandIssues(entities, edges, rootsByBlock, page.blocks, generators, nonSchemaBlocks));
   issues.push(...validate(entities, { visibleText: page.visibleText, nonSchemaBlocks }));
   return { entities, edges, roots, issues, generators };
 }
