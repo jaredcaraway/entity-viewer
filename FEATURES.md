@@ -2,11 +2,11 @@
 
 Candidate features to make Entity Viewer useful to SEOs and developers beyond personal use. Ordered by priority. Current state: v0.1.1, signed unlisted on AMO (see README for what exists today).
 
-**Start here:** the top two items, full vocabulary validation (1.1) and the page-content mismatch check (1.3). The first gets the extension to parity with competitors; the second is a differentiator almost no other tool has.
+**Done:** full vocabulary validation (1.1) and the page-content mismatch check (1.3). See `docs/superpowers/specs/2026-10-02-vocab-and-mismatch-validation-design.md`. **Next:** rich-result eligibility verdicts (1.2).
 
 ## 1. Trustworthy validation
 
-### 1.1 Full schema.org vocabulary validation — TOP PRIORITY
+### 1.1 Full schema.org vocabulary validation — DONE
 - Bundle the schema.org vocabulary (`schemaorg-current-https.jsonld`, about 1 MB; bundling is fine and AMO forbids remote code anyway). Preprocess it at build time into a compact map of types → allowed properties (including inherited ones) and properties → expected value types.
 - Flag unknown types, unknown or misspelled properties with "did you mean" suggestions (`adress` → `address`, via edit distance), and values whose type doesn't match the property's range.
 - Where it plugs in: `src/lib/validate.ts`. The existing `PARENT` subtype map could come from the vocabulary instead of being maintained by hand.
@@ -16,7 +16,7 @@ Candidate features to make Entity Viewer useful to SEOs and developers beyond pe
 - For example: "Product: eligible for merchant listing" or "Missing `offers` → not eligible".
 - Builds on the existing `RULES` in `validate.ts` (about 25 types). Split each type's rules into required and recommended, and show a verdict badge in `EntityDetail` and the Issues view.
 
-### 1.3 Markup vs. visible-content mismatch — TOP PRIORITY
+### 1.3 Markup vs. visible-content mismatch — DONE
 - Flag schema values that don't appear in the page's visible text: `price`, `ratingValue`, `reviewCount`, `name`, `headline`, `author` name, and so on. Google treats this mismatch as a spam signal.
 - Implementation: in `public/extract.js`, also return the page's normalized visible text (`document.body.innerText`, or a trimmed or hashed version). Compare with normalization: strip whitespace and case, and accept number formats like `19.99` vs. `$19.99` vs. `19,99`.
 - Severity: a warning rather than an error, since some values legitimately aren't visible (`sku`, `gtin`, ISO dates).

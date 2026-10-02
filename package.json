@@ -2,11 +2,16 @@
   "name": "entity-viewer",
   "version": "0.1.1",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
+    "vocab": "tsx scripts/build-vocab.ts",
+    "predev": "npm run vocab",
     "dev": "vite build --watch",
+    "prebuild": "npm run vocab",
     "build": "vite build",
-    "test": "tsx test/run.ts",
+    "pretest": "npm run vocab",
+    "test": "tsx --test test/*.test.ts && tsx test/run.ts",
     "zip": "cd dist && zip -qr ../entity-viewer-firefox.zip ."
   },
   "dependencies": {

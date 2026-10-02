@@ -13,6 +13,8 @@ export interface PageData {
   url: string;
   title: string;
   blocks: Block[];
+  /** The page's rendered text plus alt and aria-label values, for the mismatch check. */
+  visibleText?: string;
 }
 
 export type PropValue =

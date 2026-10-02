@@ -18,6 +18,7 @@ export function buildGraph(page: PageData): Graph {
   const edges: Edge[] = [];
   const issues: Issue[] = [];
   const blockRoots: string[][] = [];
+  const nonSchemaBlocks = new Set<string>();
   let blank = 0;
 
   const getEntity = (id: string, isBlank: boolean): Entity => {
@@ -103,8 +104,9 @@ export function buildGraph(page: PageData): Graph {
         issues.push({ severity: 'error', blockKey: bk, message: `${bk} contains a non-object top-level value.` });
         continue;
       }
+      const ctx = top['@context'];
+      if (ctx !== undefined && !isSchemaContext(ctx)) nonSchemaBlocks.add(bk);
       if (block.source === 'json-ld') {
-        const ctx = top['@context'];
         if (ctx === undefined) {
           issues.push({ severity: 'warning', blockKey: bk, message: `${bk} has no @context; types won't resolve to schema.org.` });
         } else if (typeof ctx === 'string' && !/schema\.org/i.test(ctx)) {
@@ -137,8 +139,16 @@ export function buildGraph(page: PageData): Graph {
   let roots = [...entities.keys()].filter((id) => !targeted.has(id) && !entities.get(id)!.stub);
   if (!roots.length) roots = [...new Set(blockRoots.flat())];
 
-  issues.push(...validate(entities));
+  issues.push(...validate(entities, { visibleText: page.visibleText, nonSchemaBlocks }));
   return { entities, edges, roots, issues };
+}
+
+/** Whether an @context (string, array or object with @vocab) points at schema.org. */
+function isSchemaContext(ctx: unknown): boolean {
+  if (typeof ctx === 'string') return /schema\.org/i.test(ctx);
+  if (Array.isArray(ctx)) return ctx.some(isSchemaContext);
+  if (isObj(ctx)) return typeof ctx['@vocab'] === 'string' && isSchemaContext(ctx['@vocab']);
+  return false;
 }
 
 export function labelFor(e: Entity): string {
