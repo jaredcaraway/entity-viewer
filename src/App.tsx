@@ -21,6 +21,8 @@ import { DEMO_PAGE } from './demo';
 type Status = 'loading' | 'ready' | 'permission' | 'restricted' | 'error';
 const IN_EXTENSION = typeof browser !== 'undefined' && !!browser?.scripting;
 const RANK: Record<Severity, number> = { error: 3, warning: 2, info: 1 };
+/** Height of the entity drawer. It floats over the tab content, so the scrolling views pad by this much while it's open. */
+const DRAWER_SIZE = '62vh';
 
 export function App() {
   const [status, setStatus] = useState<Status>('loading');
@@ -229,16 +231,19 @@ export function App() {
             <Tabs.Panel value="tree" style={{ flex: 1, minHeight: 0 }}>
               <ScrollArea h="100%">
                 <TreeView graph={graph} selected={selected} onSelect={select} />
+                {drawerOpen && !!entity && <Box h={DRAWER_SIZE} />}
               </ScrollArea>
             </Tabs.Panel>
             <Tabs.Panel value="issues" style={{ flex: 1, minHeight: 0 }}>
               <ScrollArea h="100%">
                 <IssuesView graph={graph} onSelect={select} />
+                {drawerOpen && !!entity && <Box h={DRAWER_SIZE} />}
               </ScrollArea>
             </Tabs.Panel>
             <Tabs.Panel value="raw" style={{ flex: 1, minHeight: 0 }}>
               <ScrollArea h="100%">
                 <RawView blocks={page!.blocks} generators={graph.generators} note={originNote} onFetchOriginal={originFetch} />
+                {drawerOpen && !!entity && <Box h={DRAWER_SIZE} />}
               </ScrollArea>
             </Tabs.Panel>
           </Tabs>
@@ -247,7 +252,7 @@ export function App() {
             opened={drawerOpen && !!entity}
             onClose={() => setDrawerOpen(false)}
             position="bottom"
-            size="62%"
+            size={DRAWER_SIZE}
             withOverlay={false}
             lockScroll={false}
             trapFocus={false}
