@@ -24,8 +24,8 @@ Candidate features to make Entity Viewer useful to SEOs and developers beyond pe
 ## 2. Lean into the graph (the differentiator)
 
 ### 2.1 Graph coverage hints
-- "Organization has no `logo`", "WebPage not linked to WebSite via `isPartOf`", "Article `author` isn't a Person entity", "3 disconnected subgraphs; consider linking them with `@id`".
-- Graph analysis belongs in `src/lib/graph.ts`, and its output can appear as `info`-level issues.
+- Disconnected subgraphs, duplicate entities across them and missing standard links (`isPartOf`, `breadcrumb`, `mainEntity`, `publisher`, `author`) are done in `src/lib/islands.ts`.
+- Still to do: "Organization has no `logo`", "Article `author` isn't a Person entity", and similar hints about entities that are connected but thin.
 
 ### 2.2 Compare two pages or versions
 - Diff the entity graph of the current scan against the previous scan of the same URL, or against another URL (staging vs. production). Show added, removed and changed entities and properties.
