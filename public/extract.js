@@ -180,7 +180,36 @@
     }
   };
 
-  return {
+  /* ---------------- Visible text (for the markup vs. content check) ---------------- */
+  const MAX_TEXT = 2 * 1024 * 1024;
+
+  function visibleText() {
+    const body = document.body;
+    if (!body) return undefined;
+    let text;
+    try {
+      text = body.innerText;
+    } catch (e) {
+      text = undefined;
+    }
+    if (typeof text !== 'string') {
+      // No layout (jsdom): fall back to textContent without scripts and styles.
+      const clone = body.cloneNode(true);
+      clone.querySelectorAll('script, style, noscript, template').forEach((el) => el.remove());
+      text = clone.textContent || '';
+    }
+    const extras = [];
+    body.querySelectorAll('[alt], [aria-label]').forEach((el) => {
+      if (el.closest('[hidden], [aria-hidden="true"]')) return;
+      for (const a of ['alt', 'aria-label']) {
+        const v = el.getAttribute(a);
+        if (v && v.trim()) extras.push(v.trim());
+      }
+    });
+    return (text + '\n' + extras.join('\n')).slice(0, MAX_TEXT);
+  }
+
+  const page = {
     url: location.href,
     title: document.title,
     blocks: [
@@ -189,4 +218,11 @@
       ...safe(rdfaBlocks, 'rdfa'),
     ],
   };
+  try {
+    const text = visibleText();
+    if (text !== undefined) page.visibleText = text;
+  } catch (e) {
+    // Only the mismatch check needs this; leave it out.
+  }
+  return page;
 })();
