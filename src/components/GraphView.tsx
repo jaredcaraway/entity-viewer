@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import cytoscape, { type Core } from 'cytoscape';
+import fcose from 'cytoscape-fcose';
 import { ActionIcon, Group, SegmentedControl, Tooltip, useComputedColorScheme } from '@mantine/core';
 import { IconFocusCentered, IconPhotoDown } from '@tabler/icons-react';
 import type { Graph } from '../lib/types';
 import { colorForType } from '../theme';
 import { download } from '../lib/browser';
+import { separate } from '../lib/overlap';
+import { leftToRightTree } from '../lib/tree';
 
-type LayoutName = 'cose' | 'breadthfirst' | 'concentric' | 'circle';
+type LayoutName = 'fcose' | 'tree' | 'concentric' | 'circle';
 
 interface Props {
   graph: Graph;
@@ -16,12 +19,34 @@ interface Props {
   fileStem: string;
 }
 
+cytoscape.use(fcose);
+
+/** Room around each node when pulling overlapping nodes apart; covers the issue outline too. */
+const NODE_GAP = 14;
+
+/** Rough width of an edge label at its 8px font, so edges can be long enough to show it clear of the nodes. */
+const edgeLength = (label: string) => Math.max(70, label.length * 4.6 + 50);
+
+const box = (n: cytoscape.NodeSingular) => {
+  const bb = n.boundingBox({ includeLabels: true });
+  return { x: n.position('x'), y: n.position('y'), w: bb.w, h: bb.h };
+};
+
+/** Moves overlapping nodes apart after a layout. */
+function untangle(cy: Core) {
+  const nodes = cy.nodes();
+  const pos = separate(nodes.map(box), { gap: NODE_GAP });
+  cy.batch(() => nodes.forEach((n, i) => {
+    n.position(pos[i]);
+  }));
+}
+
 const SEVERITY_BORDER = { error: '#e03131', warning: '#f59f00', info: '#74c0fc' } as const;
 
 export function GraphView({ graph, selected, onSelect, issueIds, fileStem }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
-  const [layout, setLayout] = useState<LayoutName>('cose');
+  const [layout, setLayout] = useState<LayoutName>('fcose');
   const scheme = useComputedColorScheme('light');
   const dark = scheme === 'dark';
 
@@ -126,15 +151,28 @@ export function GraphView({ graph, selected, onSelect, issueIds, fileStem }: Pro
   useEffect(() => {
     const cy = cyRef.current;
     if (!cy) return;
-    const opts: cytoscape.LayoutOptions =
-      layout === 'breadthfirst'
-        ? ({ name: 'breadthfirst', directed: true, roots: cy.nodes().filter((n) => roots.includes(n.id())), spacingFactor: 1.1, animate: false } as cytoscape.LayoutOptions)
-        : layout === 'concentric'
+    if (layout === 'tree') {
+      const pos = leftToRightTree(
+        cy.nodes().map((n) => ({ id: n.id(), ...box(n) })),
+        cy.edges().map((e) => ({ source: e.source().id(), target: e.target().id(), label: e.data('label') })),
+        roots,
+        { gap: NODE_GAP, labelWidth: (l) => l.length * 4.6 },
+      );
+      cy.layout({ name: 'preset', positions: (n: cytoscape.NodeSingular) => pos.get(n.id())!, animate: false } as cytoscape.LayoutOptions).run();
+    } else {
+      const opts: cytoscape.LayoutOptions =
+        layout === 'concentric'
           ? ({ name: 'concentric', minNodeSpacing: 20, animate: false } as cytoscape.LayoutOptions)
           : layout === 'circle'
             ? { name: 'circle', animate: false }
-            : ({ name: 'cose', animate: false, nodeRepulsion: () => 9000, idealEdgeLength: () => 70, padding: 20 } as cytoscape.LayoutOptions);
-    cy.layout(opts).run();
+            : ({
+                name: 'fcose', quality: 'proof', animate: false, padding: 20, nodeDimensionsIncludeLabels: true,
+                nodeRepulsion: () => 12000, nodeSeparation: NODE_GAP * 2, packComponents: true,
+                idealEdgeLength: (e: cytoscape.EdgeSingular) => edgeLength(e.data('label') ?? ''),
+              } as cytoscape.LayoutOptions);
+      cy.layout(opts).run();
+      untangle(cy);
+    }
     cy.fit(undefined, 20);
   }, [layout, elements, dark, roots]);
 
@@ -167,8 +205,8 @@ export function GraphView({ graph, selected, onSelect, issueIds, fileStem }: Pro
           value={layout}
           onChange={(v) => setLayout(v as LayoutName)}
           data={[
-            { value: 'cose', label: 'Force' },
-            { value: 'breadthfirst', label: 'Tree' },
+            { value: 'fcose', label: 'Force' },
+            { value: 'tree', label: 'Tree' },
             { value: 'concentric', label: 'Rings' },
             { value: 'circle', label: 'Circle' },
           ]}
