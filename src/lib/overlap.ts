@@ -9,12 +9,11 @@ export interface Box {
 /**
  * Moves boxes apart until none overlap (with `gap` between them), or `maxRounds` passes run out.
  * Each overlapping pair is pushed apart along the axis where it overlaps least, half each way, so a
- * layout's overall shape survives. `axis: 'x'` only moves boxes sideways (keeps a tree's rows).
+ * layout's overall shape survives.
  * Returns new centers in the same order; sizes don't change.
  */
-export function separate(boxes: Box[], { gap = 10, axis = 'both', maxRounds = 200 }: { gap?: number; axis?: 'both' | 'x'; maxRounds?: number } = {}): { x: number; y: number }[] {
+export function separate(boxes: Box[], { gap = 10, maxRounds = 200 }: { gap?: number; maxRounds?: number } = {}): { x: number; y: number }[] {
   const pos = boxes.map((b) => ({ x: b.x, y: b.y }));
-  if (axis === 'x') return packRows(boxes, pos, gap);
   for (let round = 0; round < maxRounds; round++) {
     let moved = false;
     for (let i = 0; i < boxes.length; i++) {
@@ -40,33 +39,6 @@ export function separate(boxes: Box[], { gap = 10, axis = 'both', maxRounds = 20
       }
     }
     if (!moved) break;
-  }
-  return pos;
-}
-
-/**
- * For layouts in rows (a tree's levels): boxes whose vertical extents overlap share a row. Each row
- * is packed left to right in its current order, then shifted back to its original center.
- */
-function packRows(boxes: Box[], pos: { x: number; y: number }[], gap: number) {
-  const order = boxes.map((_, i) => i).sort((a, b) => boxes[a].y - boxes[b].y);
-  const rows: number[][] = [];
-  for (const i of order) {
-    const row = rows.at(-1);
-    const last = row && boxes[row[row.length - 1]];
-    if (row && last && Math.abs(boxes[i].y - last.y) < (boxes[i].h + last.h) / 2) row.push(i);
-    else rows.push([i]);
-  }
-  for (const row of rows) {
-    row.sort((a, b) => boxes[a].x - boxes[b].x || a - b);
-    const before = row.reduce((n, i) => n + boxes[i].x, 0) / row.length;
-    for (let k = 1; k < row.length; k++) {
-      const prev = row[k - 1];
-      const cur = row[k];
-      pos[cur].x = Math.max(pos[cur].x, pos[prev].x + (boxes[prev].w + boxes[cur].w) / 2 + gap);
-    }
-    const shift = before - row.reduce((n, i) => n + pos[i].x, 0) / row.length;
-    for (const i of row) pos[i].x += shift;
   }
   return pos;
 }

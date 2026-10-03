@@ -25,14 +25,6 @@ test('identical positions are split deterministically', () => {
   assert.deepEqual(a, separate(boxes));
 });
 
-test("axis 'x' keeps rows", () => {
-  const boxes = [0, 30, 60, 90].map((x) => ({ x, y: 100, w: 120, h: 30 }));
-  const out = apply(boxes, separate(boxes, { axis: 'x' }));
-  assert.ok(!overlaps(out, 10));
-  assert.ok(out.every((b) => b.y === 100));
-  assert.deepEqual(out.map((b) => b.x), [...out.map((b) => b.x)].sort((p, q) => p - q), 'order is kept');
-});
-
 test('a crowded hub is fully untangled', () => {
   // Eight wide children scattered close around one hub, as cose leaves them.
   const boxes: Box[] = [{ x: 0, y: 0, w: 180, h: 60 }];
