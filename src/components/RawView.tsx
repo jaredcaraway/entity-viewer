@@ -1,10 +1,10 @@
 import { ActionIcon, Alert, Badge, Button, Code, CopyButton, Group, Paper, ScrollArea, Stack, Text, Tooltip } from '@mantine/core';
 import { IconCheck, IconCopy } from '@tabler/icons-react';
-import type { Block, BlockHints, Generator, Origin } from '../lib/types';
+import type { Block, BlockHints, Generator, Origin, Source } from '../lib/types';
 import { blockKey } from '../lib/graph';
 import { generatorName } from '../lib/provenance';
 
-const SOURCE_COLOR = { 'json-ld': 'lagoon', microdata: 'ember', rdfa: 'grape' } as const;
+export const SOURCE_COLOR = { 'json-ld': 'lagoon', microdata: 'ember', rdfa: 'grape' } as const;
 
 const ORIGIN: Record<Origin, { label: string; color: string; tip: string }> = {
   static: { label: 'server HTML', color: 'gray', tip: 'In the HTML the server sent, unchanged.' },
@@ -28,11 +28,25 @@ interface Props {
   note?: string;
   /** Set when that comparison needs the page requested again, which the user confirms by clicking. */
   onFetchOriginal?: () => void;
+  /** Show only blocks of this syntax. */
+  source?: Source;
+  onClearSource?: () => void;
 }
 
-export function RawView({ blocks, generators, note, onFetchOriginal }: Props) {
+export function RawView({ blocks, generators, note, onFetchOriginal, source, onClearSource }: Props) {
+  const shown = source ? blocks.filter((b) => b.source === source) : blocks;
   return (
     <Stack gap="sm" p="xs">
+      {source && (
+        <Group gap="xs" wrap="nowrap" align="center">
+          <Text size="xs" c="dimmed" style={{ flex: 1 }}>
+            Showing {shown.length} {source} block{shown.length === 1 ? '' : 's'} of {blocks.length}.
+          </Text>
+          <Button size="compact-xs" variant="subtle" onClick={onClearSource}>
+            Show all
+          </Button>
+        </Group>
+      )}
       {note && (
         <Group gap="xs" wrap="nowrap" align="center">
           <Text size="xs" c="dimmed" style={{ flex: 1 }}>
@@ -45,7 +59,7 @@ export function RawView({ blocks, generators, note, onFetchOriginal }: Props) {
           )}
         </Group>
       )}
-      {blocks.map((b) => {
+      {shown.map((b) => {
         const text = b.raw && b.error ? b.raw : JSON.stringify(b.data, null, 2);
         const gen = generators.get(blockKey(b));
         const origin = b.origin && ORIGIN[b.origin];

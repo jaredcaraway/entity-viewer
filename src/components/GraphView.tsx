@@ -128,7 +128,7 @@ export function GraphView({ graph, selected, onSelect, issueIds, fileStem }: Pro
     if (!cy) return;
     const opts: cytoscape.LayoutOptions =
       layout === 'breadthfirst'
-        ? ({ name: 'breadthfirst', directed: true, roots: roots.map((r) => cy.getElementById(r)), spacingFactor: 1.1, animate: false } as cytoscape.LayoutOptions)
+        ? ({ name: 'breadthfirst', directed: true, roots: cy.nodes().filter((n) => roots.includes(n.id())), spacingFactor: 1.1, animate: false } as cytoscape.LayoutOptions)
         : layout === 'concentric'
           ? ({ name: 'concentric', minNodeSpacing: 20, animate: false } as cytoscape.LayoutOptions)
           : layout === 'circle'

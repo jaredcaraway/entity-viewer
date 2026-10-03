@@ -8,13 +8,13 @@ import {
   IconRefresh, IconSun, IconWorldOff,
 } from '@tabler/icons-react';
 import { buildGraph, toJsonLd } from './lib/graph';
-import type { PageData, Severity } from './lib/types';
+import type { PageData, Severity, Source } from './lib/types';
 import { activeTab, BROWSER_NAME, download, extractFrom, hasHostPermission, IN_EXTENSION, onActivePageChange, openTab, originalFrom, requestHostPermission } from './lib/browser';
 import { classifyOrigins } from './lib/provenance';
 import { GraphView } from './components/GraphView';
 import { TreeView } from './components/TreeView';
 import { IssuesView } from './components/IssuesView';
-import { RawView } from './components/RawView';
+import { RawView, SOURCE_COLOR } from './components/RawView';
 import { EntityDetail, TypeBadges } from './components/EntityDetail';
 import { DEMO_PAGE } from './demo';
 
@@ -28,6 +28,8 @@ export function App() {
   const [page, setPage] = useState<PageData | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [tab, setTab] = useState<string | null>('graph');
+  /** The Raw tab shows only blocks of this syntax; set by the source badges. */
+  const [rawSource, setRawSource] = useState<Source | undefined>();
   const [selected, setSelected] = useState<string | undefined>();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [originNote, setOriginNote] = useState<string | undefined>();
@@ -64,6 +66,7 @@ export function App() {
     setDrawerOpen(false);
     setOriginNote(undefined);
     setOriginFetch(undefined);
+    setRawSource(undefined);
     if (!IN_EXTENSION) {
       setPage(DEMO_PAGE);
       setStatus('ready');
@@ -200,14 +203,38 @@ export function App() {
             </Badge>
             {(['json-ld', 'microdata', 'rdfa'] as const).map((s) => {
               const n = page!.blocks.filter((b) => b.source === s).length;
+              const active = tab === 'raw' && rawSource === s;
               return n ? (
-                <Badge key={s} color="gray">
-                  {s} ×{n}
-                </Badge>
+                <Tooltip key={s} label={active ? 'Show all blocks' : `Show the ${s} block${n > 1 ? 's' : ''}`}>
+                  <Badge
+                    component="button"
+                    aria-pressed={active}
+                    color={active ? SOURCE_COLOR[s] : 'gray'}
+                    variant={active ? 'filled' : 'light'}
+                    style={{ cursor: 'pointer', border: 0 }}
+                    onClick={() => {
+                      setRawSource(active ? undefined : s);
+                      setTab('raw');
+                    }}
+                  >
+                    {s} ×{n}
+                  </Badge>
+                </Tooltip>
               ) : null;
             })}
-            {counts.error > 0 && <Badge color="red">{counts.error} error{counts.error > 1 ? "s" : ""}</Badge>}
-            {counts.warning > 0 && <Badge color="yellow">{counts.warning} warning{counts.warning > 1 ? "s" : ""}</Badge>}
+            {(['error', 'warning'] as const).map((sev) =>
+              counts[sev] > 0 ? (
+                <Badge
+                  key={sev}
+                  component="button"
+                  color={sev === 'error' ? 'red' : 'yellow'}
+                  style={{ cursor: 'pointer', border: 0 }}
+                  onClick={() => setTab('issues')}
+                >
+                  {counts[sev]} {sev}{counts[sev] > 1 ? 's' : ''}
+                </Badge>
+              ) : null,
+            )}
           </Group>
 
           <Tabs value={tab} onChange={setTab} keepMounted={false} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
@@ -241,7 +268,14 @@ export function App() {
             </Tabs.Panel>
             <Tabs.Panel value="raw" style={{ flex: 1, minHeight: 0 }}>
               <ScrollArea h="100%">
-                <RawView blocks={page!.blocks} generators={graph.generators} note={originNote} onFetchOriginal={originFetch} />
+                <RawView
+                  blocks={page!.blocks}
+                  generators={graph.generators}
+                  note={originNote}
+                  onFetchOriginal={originFetch}
+                  source={rawSource}
+                  onClearSource={() => setRawSource(undefined)}
+                />
                 {drawerOpen && !!entity && <Box h={DRAWER_SIZE} />}
               </ScrollArea>
             </Tabs.Panel>
