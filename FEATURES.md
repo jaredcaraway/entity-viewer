@@ -54,5 +54,5 @@ Candidate features to make Entity Viewer useful to SEOs and developers beyond pe
 ## 5. Reach
 
 - **List publicly on AMO** instead of unlisted. Needs listing copy, screenshots and a demo GIF that leads with the graph view.
-- **Chrome port.** Most SEOs use Chrome. MV3 `side_panel` replaces `sidebar_action`, and the `browser.*` calls in `src/lib/browser.ts` and `public/background.js` need a `chrome.*` shim. The React UI carries over unchanged.
-- Remember to bump `version` in both `public/manifest.json` and `package.json` before each AMO submission (AMO rejects duplicate versions).
+- **Chrome Web Store listing.** The Chrome build exists (`npm run build:chrome`); publishing needs a developer account, store screenshots and a privacy disclosure.
+- Remember to bump `version` in `package.json` (the manifests take it from there) before each store submission (AMO rejects duplicate versions).

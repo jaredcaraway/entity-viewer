@@ -1,10 +1,16 @@
-/* global browser */
-const api = globalThis.browser;
+/* global browser, chrome */
+// Firefox runs this as a background script with `browser`; Chrome as a service worker with `chrome`.
+const api = globalThis.browser ?? globalThis.chrome;
 const ALL = { origins: ['<all_urls>'] };
 
-api.action.onClicked.addListener(() => {
-  api.sidebarAction.toggle();
-});
+if (api.sidePanel) {
+  // Chrome: the toolbar button and its shortcut (_execute_action) open the side panel.
+  api.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+} else {
+  api.action.onClicked.addListener(() => {
+    api.sidebarAction.toggle();
+  });
+}
 
 api.action.setBadgeBackgroundColor({ color: '#19a4a2' });
 if (api.action.setBadgeTextColor) api.action.setBadgeTextColor({ color: '#ffffff' });
@@ -40,7 +46,7 @@ async function updateBadge(tabId, url) {
     api.action.setBadgeBackgroundColor({ tabId, color: hasError ? '#e03131' : '#19a4a2' });
     api.action.setBadgeText({ tabId, text: n ? String(n) : '' });
   } catch {
-    // Restricted pages (about:, AMO, PDF viewer) reject injection; leave the badge blank.
+    // Restricted pages (about:, chrome://, extension stores, PDF viewer) reject injection; leave the badge blank.
   }
 }
 

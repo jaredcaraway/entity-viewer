@@ -8,11 +8,17 @@
     "vocab": "tsx scripts/build-vocab.ts",
     "predev": "npm run vocab",
     "dev": "vite build --watch",
-    "prebuild": "npm run vocab",
-    "build": "vite build",
+    "predev:chrome": "npm run vocab",
+    "dev:chrome": "TARGET=chrome vite build --watch",
+    "build": "npm run build:firefox && npm run build:chrome",
+    "prebuild:firefox": "npm run vocab",
+    "build:firefox": "TARGET=firefox vite build",
+    "prebuild:chrome": "npm run vocab",
+    "build:chrome": "TARGET=chrome vite build",
+    "icons": "for s in 16 32 48 128; do magick -background none -density 600 public/icons/icon.svg -resize ${s}x${s} public/icons/icon-$s.png; done",
     "pretest": "npm run vocab",
     "test": "tsx --test test/*.test.ts && tsx test/run.ts",
-    "zip": "cd dist && zip -qr ../entity-viewer-firefox.zip ."
+    "zip": "for t in firefox chrome; do (cd dist/$t && zip -qr ../../entity-viewer-$t.zip .); done"
   },
   "dependencies": {
     "@mantine/core": "^9.6.3",
